@@ -1,0 +1,82 @@
+Uart driver note 1: -
+======================
+UART drivers revolve around three key data structures. All three are defined in include/linux/serial_core.h:
+    a. struct uart_driver
+    b. struct uart_port
+    c. struct uart_ops
+
+a. struct uart_driver:-
+------------------------
+The per-UART driver structure, struct uart_driver:
+
+struct uart_driver {
+  struct module  *owner;          /* Module that owns this
+                                     struct */
+  const char     *driver_name;    /* Name */
+  const char     *dev_name;       /* /dev node name
+                                     such as ttyS */
+  /* ... */
+  int             major;          /* Major number */
+  int             minor;          /* Minor number */
+  /* ... */
+  struct tty_driver *tty_driver;  /* tty driver */
+};
+The comments against each field explain the associated semantics. The owner field allows the same benefits
+as that discussed in the previous chapter for the file_operations structure.
+
+b. struct uart_port:- 
+-----------------------
+struct uart_port. One instance of this structure exists for each port owned by the UART driver:
+
+struct uart_port {
+  spinlock_t     lock;             /* port lock */
+  unsigned int   iobase;           /* in/out[bwl]*/
+  unsigned char  __iomem *membase; /* read/write[bwl]*/
+  unsigned int   irq;              /* irq number */
+  unsigned int   uartclk;          /* base uart clock */
+  unsigned char  fifosize;         /* tx fifo size */
+  unsigned char  x_char;           /* xon/xoff flow
+                                      control */
+  /* ... */
+};
+
+b. struct uart_ops:- 
+-----------------------
+struct uart_ops. This is a superset of entry points that each UART driver has to support and describes the 
+operations that can be done on physical hardware. The methods in this structure are invoked by the tty layer:
+
+struct uart_ops {
+  uint (*tx_empty)(struct uart_port *);     /* Is TX FIFO empty? */
+  void (*set_mctrl)(struct uart_port *,
+                    unsigned int mctrl);    /* Set modem control params */
+  uint (*get_mctrl)(struct uart_port *);    /* Get modem control params */
+  void (*stop_tx)(struct uart_port *);      /* Stop xmission */
+  void (*start_tx)(struct uart_port *);     /* Start xmission */
+
+  /* ... */
+  void (*shutdown)(struct uart_port *);     /* Disable the port */
+  void (*set_termios)(struct uart_port *,
+                      struct termios *new,
+                      struct termios *old); /* Set terminal interface
+                                               params */
+  /* ... */
+  void (*config_port)(struct uart_port *,
+                      int);                 /* Configure UART port */
+  /* ... */
+};
+
+=>There are two important steps that a UART driver has to do to tie itself with the kernel:
+
+1.Register with the serial core by calling
+
+uart_register_driver(struct uart_driver *);
+
+2.Invoke uart_add_one_port(struct uart_driver *, struct uart_port *) to register each individual 
+port that it supports. If your serial hardware is hotplugged, the ports are registered with the core from 
+the entry point that probes the presence of the device. Look at the CardBus Modem driver in Listing 10.4 in Chapter 10, 
+"Peripheral Component Interconnect," for an example where the serial device is plugged hot. Note that some drivers use
+the wrapper registration function serial8250_register_port(struct uart_port *), which internally invokes uart_add_one_port().
+
+These data structures and registration functions constitute the least common denominator present in all UART drivers. 
+Armed with these structures and routines, let's develop a sample UART driver.
+

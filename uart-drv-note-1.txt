@@ -78,5 +78,5 @@ the entry point that probes the presence of the device. Look at the CardBus Mode
 the wrapper registration function serial8250_register_port(struct uart_port *), which internally invokes uart_add_one_port().
 
 These data structures and registration functions constitute the least common denominator present in all UART drivers. 
-Armed with these structures and routines, let's develop a sample UART driver.
+
 
